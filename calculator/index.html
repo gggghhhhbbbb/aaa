@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>纸带计算器</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* 布局：左侧是计算器机身，右侧是纸带（历史记录）；窄屏时上下堆叠 */
+:root {
+  --bg: #e9ecf1;
+  --body: #f7f8fa;
+  --key: #ffffff;
+  --key-fn: #dde2ea;
+  --key-shadow: #c3cad5;
+  --fg: #19212c;
+  --muted: #687384;
+  --accent: #2d5f93;
+  --accent-fg: #ffffff;
+  --accent-soft: #d6e3f1;
+  --tape: #fffdf7;
+  --tape-line: #e4ddca;
+  --error: #b3362f;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151b; --body: #1a2029; --key: #252c37; --key-fn: #2f3846; --key-shadow: #0b0e12;
+    --fg: #e5eaf1; --muted: #8b95a5; --accent: #6b9fd6; --accent-fg: #0d1520; --accent-soft: #24364b;
+    --tape: #1d222a; --tape-line: #323a46; --error: #ef7d74; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151b; --body: #1a2029; --key: #252c37; --key-fn: #2f3846; --key-shadow: #0b0e12;
+  --fg: #e5eaf1; --muted: #8b95a5; --accent: #6b9fd6; --accent-fg: #0d1520; --accent-soft: #24364b;
+  --tape: #1d222a; --tape-line: #323a46; --error: #ef7d74; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  padding-block: 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 680px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); max-width: 400px; }
+}
+
+/* 机身 */
+.calc {
+  background: var(--body);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 0 1px 0 var(--key-shadow), 0 12px 32px -18px rgba(20, 30, 45, .45);
+  display: grid;
+  gap: 16px;
+}
+.brand {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--muted); letter-spacing: .08em;
+}
+.brand b { font-weight: 700; color: var(--fg); letter-spacing: .12em; }
+
+.screen {
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  min-height: 112px;
+  display: grid;
+  align-content: end;
+  gap: 4px;
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  cursor: copy;
+  position: relative;
+}
+.screen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sub {
+  min-height: 1.4em;
+  color: var(--muted);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.main {
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.main.error { color: var(--error); font-family: var(--font-ui); font-size: 24px; }
+.toast {
+  position: absolute; left: 12px; top: 10px;
+  font-family: var(--font-ui); font-size: 12px; color: var(--accent);
+  opacity: 0; transition: opacity .2s;
+}
+.toast.show { opacity: 1; }
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.key {
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius);
+  height: 58px;
+  background: var(--key);
+  color: var(--fg);
+  font-family: var(--font-num);
+  font-size: 22px;
+  box-shadow: 0 2px 0 var(--key-shadow);
+  cursor: pointer;
+  transition: transform .06s, box-shadow .06s, filter .12s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.key:hover { filter: brightness(.97); }
+.key:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.key:active, .key.pressed { transform: translateY(2px); box-shadow: 0 0 0 var(--key-shadow); }
+.key.fn { background: var(--key-fn); font-size: 18px; }
+.key.fn.txt { font-family: var(--font-ui); font-weight: 500; }
+.key.op { background: var(--key-fn); color: var(--accent); font-size: 26px; font-weight: 600; }
+.key.eq { background: var(--accent); color: var(--accent-fg); grid-column: span 3; font-size: 26px; }
+
+.hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.hint kbd {
+  font-family: var(--font-num); font-size: 11px;
+  background: var(--key-fn); border-radius: 4px; padding: 0 5px;
+}
+
+/* 纸带 */
+.tape {
+  background: var(--tape);
+  border-radius: 6px;
+  box-shadow: 0 1px 0 var(--tape-line), 0 10px 28px -20px rgba(20, 30, 45, .5);
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  max-height: 600px;
+  position: relative;
+}
+/* 纸带顶部的锯齿撕口 */
+.tape::before {
+  content: "";
+  position: absolute; left: 0; right: 0; top: -6px; height: 6px;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--tape) 50%) 0 0 / 12px 6px repeat-x,
+    linear-gradient(225deg, transparent 50%, var(--tape) 50%) 0 0 / 12px 6px repeat-x;
+}
+.tape-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px 10px;
+  border-bottom: 1px dashed var(--tape-line);
+}
+.tape-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .06em; }
+.tape-head h2 span { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.clear-btn {
+  appearance: none; border: 0; background: none; color: var(--muted);
+  font: inherit; font-size: 12px; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+}
+.clear-btn:hover { color: var(--error); }
+.clear-btn:focus-visible { outline: 2px solid var(--accent); }
+.tape-list {
+  list-style: none; margin: 0; padding: 4px 0 12px;
+  overflow-y: auto;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.tape-list li button {
+  appearance: none; border: 0; background: none; color: inherit; font: inherit;
+  width: 100%; text-align: right; cursor: pointer;
+  padding: 10px 18px;
+  display: grid; gap: 2px;
+  border-bottom: 1px dotted var(--tape-line);
+}
+.tape-list li button:hover { background: var(--accent-soft); }
+.tape-list li button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tape-list .e { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.tape-list .r { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.tape-list .r::before { content: "= "; color: var(--muted); font-weight: 400; }
+.empty {
+  padding: 28px 18px; color: var(--muted); font-family: var(--font-ui); line-height: 1.7; text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key, .toast { transition: none; }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="calc" aria-label="计算器">
+    <div class="brand"><b>纸带计算器</b><span>12 位有效数字</span></div>
+
+    <div class="screen" id="screen" tabindex="0" role="button" aria-label="点击复制结果">
+      <span class="toast" id="toast">已复制</span>
+      <div class="sub" id="sub" aria-live="polite"></div>
+      <div class="main" id="main" aria-live="polite">0</div>
+    </div>
+
+    <div class="keys" id="keys">
+      <button class="key fn txt" id="k-ac" data-k="AC">AC</button>
+      <button class="key fn" id="k-lp" data-k="(">(</button>
+      <button class="key fn" id="k-rp" data-k=")">)</button>
+      <button class="key fn" id="k-bs" data-k="BS" aria-label="退格">⌫</button>
+
+      <button class="key" id="k-7" data-k="7">7</button>
+      <button class="key" id="k-8" data-k="8">8</button>
+      <button class="key" id="k-9" data-k="9">9</button>
+      <button class="key op" id="k-div" data-k="÷" aria-label="除">÷</button>
+
+      <button class="key" id="k-4" data-k="4">4</button>
+      <button class="key" id="k-5" data-k="5">5</button>
+      <button class="key" id="k-6" data-k="6">6</button>
+      <button class="key op" id="k-mul" data-k="×" aria-label="乘">×</button>
+
+      <button class="key" id="k-1" data-k="1">1</button>
+      <button class="key" id="k-2" data-k="2">2</button>
+      <button class="key" id="k-3" data-k="3">3</button>
+      <button class="key op" id="k-sub" data-k="−" aria-label="减">−</button>
+
+      <button class="key fn" id="k-neg" data-k="±" aria-label="正负号">±</button>
+      <button class="key" id="k-0" data-k="0">0</button>
+      <button class="key" id="k-dot" data-k=".">.</button>
+      <button class="key op" id="k-add" data-k="+" aria-label="加">+</button>
+
+      <button class="key fn" id="k-pct" data-k="%" aria-label="百分比">%</button>
+      <button class="key eq" id="k-eq" data-k="=" aria-label="等于">=</button>
+    </div>
+
+    <p class="hint">支持键盘：数字、<kbd>+ - * /</kbd>、<kbd>( )</kbd>、<kbd>%</kbd>、<kbd>Enter</kbd> 求值、<kbd>Backspace</kbd> 退格、<kbd>Esc</kbd> 清空。点击屏幕可复制结果。</p>
+  </section>
+
+  <section class="tape" aria-label="计算记录">
+    <div class="tape-head">
+      <h2>纸带<span id="count"></span></h2>
+      <button class="clear-btn" id="clear-tape">清空纸带</button>
+    </div>
+    <ul class="tape-list" id="tape"></ul>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const OPS = "+−×÷";
+  const STORE_KEY = "paper-tape-calc-history";
+
+  // ---------- 状态 ----------
+  let expr = "";          // 当前输入的表达式（使用显示字符 + − × ÷）
+  let evaluated = false;  // 刚按过 =
+  let lastResult = null;  // 上次结果（数字）
+  let errorMsg = "";
+  let history = loadHistory();
+
+  // ---------- 解析与求值（递归下降，不使用 eval） ----------
+  function tokenize(s) {
+    const tokens = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (/[0-9.]/.test(c)) {
+        const m = /^(\d*\.?\d*)(e[+-]?\d+)?/.exec(s.slice(i));
+        const text = m[0];
+        if (text === "." ) throw new Error("表达式不完整");
+        tokens.push({ t: "num", v: parseFloat(text) });
+        i += text.length;
+      } else if ("+−×÷()%".includes(c)) {
+        tokens.push({ t: c });
+        i++;
+      } else {
+        throw new Error("无法识别的字符");
+      }
+    }
+    return tokens;
+  }
+
+  function evaluate(s) {
+    const tokens = tokenize(s);
+    let pos = 0;
+    const peek = () => tokens[pos] && tokens[pos].t;
+
+    function parseExpr() {
+      let v = parseTerm();
+      while (peek() === "+" || peek() === "−") {
+        const op = tokens[pos++].t;
+        const r = parseTerm();
+        v = op === "+" ? v + r : v - r;
+      }
+      return v;
+    }
+    function parseTerm() {
+      let v = parseUnary();
+      for (;;) {
+        const p = peek();
+        if (p === "×" || p === "÷") {
+          pos++;
+          const r = parseUnary();
+          if (p === "÷") {
+            if (r === 0) throw new Error("不能除以 0");
+            v = v / r;
+          } else v = v * r;
+        } else if (p === "(" || p === "num") {
+          // 隐式乘法：2(3) 或 (2)(3)
+          v = v * parseUnary();
+        } else break;
+      }
+      return v;
+    }
+    function parseUnary() {
+      if (peek() === "−") { pos++; return -parseUnary(); }
+      if (peek() === "+") { pos++; return parseUnary(); }
+      return parsePostfix();
+    }
+    function parsePostfix() {
+      let v = parsePrimary();
+      while (peek() === "%") { pos++; v = v / 100; }
+      return v;
+    }
+    function parsePrimary() {
+      const tk = tokens[pos];
+      if (!tk) throw new Error("表达式不完整");
+      if (tk.t === "num") { pos++; return tk.v; }
+      if (tk.t === "(") {
+        pos++;
+        const v = parseExpr();
+        if (peek() === ")") pos++;
+        else if (pos < tokens.length) throw new Error("括号不匹配");
+        return v;
+      }
+      throw new Error("表达式不完整");
+    }
+
+    const v = parseExpr();
+    if (pos < tokens.length) throw new Error("括号不匹配");
+    if (!isFinite(v)) throw new Error("结果超出范围");
+    // 去掉二进制浮点误差，如 0.1 + 0.2
+    return parseFloat(v.toPrecision(12));
+  }
+
+  // ---------- 格式化 ----------
+  function formatNumber(n) {
+    if (Object.is(n, -0)) n = 0;
+    const a = Math.abs(n);
+    if (a !== 0 && (a >= 1e15 || a < 1e-9)) {
+      return n.toExponential(8).replace(/\.?0+e/, "e").replace("e+", "e").replace("-", "−");
+    }
+    // 1e-7 这类小数 String() 会给出指数形式，改用定点写法
+    const plain = String(a).includes("e") ? a.toFixed(12).replace(/\.?0+$/, "") : String(a);
+    const [int, frac] = plain.split(".");
+    const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (n < 0 ? "−" : "") + grouped + (frac ? "." + frac : "");
+  }
+  // 结果转回可继续计算的表达式文本
+  function numberToExpr(n) {
+    if (Object.is(n, -0)) n = 0;
+    let s = String(n);
+    if (s.includes("e")) {
+      // 极小/极大值保留指数形式，分词器支持
+      s = n.toExponential();
+    }
+    return s.replace(/^-/, "−");
+  }
+  // 表达式中的数字加千位分隔
+  function prettyExpr(s) {
+    return s.replace(/\d+(\.\d*)?(e[+-]?\d+)?/g, m => {
+      if (m.includes("e")) return m;
+      const [i, f] = m.split(".");
+      return i.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (f !== undefined ? "." + f : "");
+    });
+  }
+
+  // ---------- 输入辅助 ----------
+  const last = () => expr.slice(-1);
+  const isDigit = c => /[0-9]/.test(c);
+  const openCount = () => (expr.match(/\(/g) || []).length - (expr.match(/\)/g) || []).length;
+  const currentNumber = () => { const m = /(\d*\.?\d*(e[+-]?\d+)?)$/.exec(expr); return m ? m[0] : ""; };
+
+  function startFresh() {
+    if (evaluated || errorMsg) { expr = ""; evaluated = false; errorMsg = ""; }
+  }
+  function continueFromResult() {
+    if (errorMsg) { expr = ""; errorMsg = ""; }
+    if (evaluated) { expr = lastResult === null ? "" : numberToExpr(lastResult); evaluated = false; }
+  }
+
+  function input(k) {
+    if (/^[0-9]$/.test(k)) {
+      startFresh();
+      if (last() === ")" || last() === "%") expr += "×";
+      const cur = currentNumber();
+      if (cur === "0") expr = expr.slice(0, -1);
+      if (cur.replace(".", "").length >= 15) return;
+      expr += k;
+    } else if (k === ".") {
+      startFresh();
+      const cur = currentNumber();
+      if (cur.includes(".") || cur.includes("e")) return;
+      if (last() === ")" || last() === "%") expr += "×";
+      expr += isDigit(last()) ? "." : "0.";
+    } else if (OPS.includes(k)) {
+      continueFromResult();
+      if (expr === "") { expr = k === "−" ? "−" : "0" + k; }
+      else if (last() === "(") { if (k === "−") expr += k; }
+      else if (OPS.includes(last())) {
+        if (k === "−" && (last() === "×" || last() === "÷")) expr += k;      // 5×−3
+        else {
+          expr = expr.replace(/[+−×÷]+$/, "");
+          if (expr === "" || last() === "(") { if (k === "−") expr += k; }
+          else expr += k;
+        }
+      } else if (last() === ".") expr = expr.slice(0, -1) + k;
+      else expr += k;
+    } else if (k === "(") {
+      startFresh();
+      if (isDigit(last()) || last() === ")" || last() === "%" || last() === ".") expr += "×";
+      expr += "(";
+    } else if (k === ")") {
+      if (evaluated || errorMsg) return;
+      if (openCount() > 0 && !OPS.includes(last()) && last() !== "(") expr += ")";
+    } else if (k === "%") {
+      continueFromResult();
+      if (isDigit(last()) || last() === ")" || last() === ".") expr += "%";
+    } else if (k === "±") {
+      continueFromResult();
+      toggleSign();
+    } else if (k === "BS") {
+      if (errorMsg) { errorMsg = ""; }
+      else if (evaluated) { evaluated = false; expr = lastResult === null ? "" : numberToExpr(lastResult); }
+      else expr = expr.slice(0, -1);
+    } else if (k === "AC") {
+      expr = ""; evaluated = false; errorMsg = "";
+    } else if (k === "=") {
+      equals();
+      return;
+    }
+    render();
+  }
+
+  function toggleSign() {
+    const cur = currentNumber();
+    if (!cur) {
+      if (expr === "" || last() === "(" || last() === "×" || last() === "÷") expr += "−";
+      else if (last() === "−") {
+        const before = expr.slice(0, -1);
+        if (before === "" || /[+−×÷(]$/.test(before)) expr = before;
+      }
+      return;
+    }
+    const idx = expr.length - cur.length;
+    const before = expr.slice(0, idx);
+    const prev = before.slice(-1);
+    const prevPrev = before.slice(-2, -1);
+    if (prev === "−" && (before.length === 1 || /[+−×÷(]/.test(prevPrev))) {
+      expr = before.slice(0, -1) + cur;               // 去掉一元负号
+    } else if (prev === "+" ) {
+      expr = before.slice(0, -1) + "−" + cur;          // a+b → a−b
+    } else if (prev === "−") {
+      expr = before.slice(0, -1) + "+" + cur;          // a−b → a+b
+    } else {
+      expr = before + "−" + cur;                       // 加上一元负号
+    }
+  }
+
+  function closedExpr() {
+    let s = expr.replace(/[+−×÷(]+$/, "");
+    const n = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+    return s + ")".repeat(Math.max(0, n));
+  }
+
+  function equals() {
+    if (evaluated || errorMsg || expr === "") return;
+    const full = closedExpr();
+    if (full === "") return;
+    try {
+      const v = evaluate(full);
+      lastResult = v;
+      evaluated = true;
+      history.unshift({ e: full, r: v });
+      history = history.slice(0, 100);
+      saveHistory();
+      expr = full;
+    } catch (err) {
+      errorMsg = err.message;
+    }
+    render();
+    renderTape();
+  }
+
+  // ---------- 渲染 ----------
+  const $main = document.getElementById("main");
+  const $sub = document.getElementById("sub");
+
+  function fitMain(text) {
+    const len = text.length;
+    const size = len <= 11 ? 40 : len <= 15 ? 32 : len <= 20 ? 26 : 20;
+    $main.style.fontSize = size + "px";
+  }
+
+  function render() {
+    $main.classList.toggle("error", !!errorMsg);
+    if (errorMsg) {
+      $sub.textContent = prettyExpr(closedExpr());
+      $main.textContent = errorMsg;
+      $main.style.fontSize = "";
+      return;
+    }
+    if (evaluated) {
+      $sub.textContent = prettyExpr(expr) + " =";
+      const t = formatNumber(lastResult);
+      $main.textContent = t;
+      fitMain(t);
+      return;
+    }
+    const shown = expr === "" ? "0" : prettyExpr(expr);
+    $main.textContent = shown;
+    fitMain(shown);
+    // 实时预览
+    let preview = "";
+    const full = closedExpr();
+    if (full && /[+−×÷%(]/.test(full.replace(/^−/, ""))) {
+      try { preview = "= " + formatNumber(evaluate(full)); } catch (_) { preview = ""; }
+    }
+    $sub.textContent = preview;
+  }
+
+  const $tape = document.getElementById("tape");
+  const $count = document.getElementById("count");
+  function renderTape() {
+    $tape.replaceChildren();
+    $count.textContent = history.length ? history.length + " 条" : "";
+    if (!history.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "还没有记录。按下 = 后，算式和结果会打印在这条纸带上，点击任意一条可把结果拿回来继续算。";
+      $tape.appendChild(li);
+      return;
+    }
+    history.forEach(item => {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.title = "使用这个结果";
+      const e = document.createElement("span"); e.className = "e"; e.textContent = prettyExpr(item.e);
+      const r = document.createElement("span"); r.className = "r"; r.textContent = formatNumber(item.r);
+      b.append(e, r);
+      b.addEventListener("click", () => {
+        expr = item.e; lastResult = item.r; evaluated = true; errorMsg = "";
+        render();
+      });
+      li.appendChild(b);
+      $tape.appendChild(li);
+    });
+  }
+
+  // ---------- 存储 ----------
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr)) return arr.filter(x => x && typeof x.e === "string" && typeof x.r === "number");
+    } catch (_) {}
+    // 示例记录，展示纸带的样子
+    return [
+      { e: "1280×0.85", r: 1088 },
+      { e: "(36.5+42.8)÷2", r: 39.65 },
+      { e: "2400×12%", r: 288 },
+    ];
+  }
+  function saveHistory() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(history)); } catch (_) {}
+  }
+
+  // ---------- 事件 ----------
+  document.getElementById("keys").addEventListener("click", e => {
+    const b = e.target.closest("[data-k]");
+    if (b) input(b.dataset.k);
+  });
+
+  const keyMap = {
+    "+": "+", "-": "−", "*": "×", "x": "×", "X": "×", "/": "÷",
+    "(": "(", ")": ")", "%": "%", ".": ".", ",": ".",
+    "Enter": "=", "=": "=", "Backspace": "BS", "Escape": "AC", "Delete": "AC",
+  };
+  document.addEventListener("keydown", e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    let k = /^[0-9]$/.test(e.key) ? e.key : keyMap[e.key];
+    if (!k) return;
+    // 焦点在纸带或清空按钮上时，Enter 交给按钮自身；计算器按键上 Enter 一律表示 =
+    const ae = document.activeElement;
+    if (e.key === "Enter" && ae && ae.matches("button") && !ae.closest("#keys")) return;
+    e.preventDefault();
+    input(k);
+    const btn = document.querySelector(`[data-k="${CSS.escape(k)}"]`);
+    if (btn) { btn.classList.add("pressed"); setTimeout(() => btn.classList.remove("pressed"), 110); }
+  });
+
+  const $toast = document.getElementById("toast");
+  function copyResult() {
+    const text = (evaluated && lastResult !== null) ? numberToExpr(lastResult).replace("−", "-") : $main.textContent;
+    const done = () => { $toast.classList.add("show"); setTimeout(() => $toast.classList.remove("show"), 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => selectMain());
+    } else selectMain();
+  }
+  function selectMain() {
+    const r = document.createRange(); r.selectNodeContents($main);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
+  const $screen = document.getElementById("screen");
+  $screen.addEventListener("click", copyResult);
+  $screen.addEventListener("keydown", e => { if (e.key === " ") { e.preventDefault(); copyResult(); } });
+
+  document.getElementById("clear-tape").addEventListener("click", () => {
+    history = []; saveHistory(); renderTape();
+  });
+
+  // 初始状态：载入一个示例算式
+  expr = "(36.5+42.8)÷2";
+  render();
+  renderTape();
+
+  // 供测试使用
+  window.__calc = { evaluate, input, get expr() { return expr; }, get display() { return $main.textContent; } };
+})();
+</script>
+</body>
+</html>
