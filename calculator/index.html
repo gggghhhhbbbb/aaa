@@ -5,40 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>纸带计算器</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <style>
-/* 布局：左侧是计算器机身，右侧是纸带（历史记录）；窄屏时上下堆叠 */
+/* 布局：手机计算器式的单列机身（显示屏在上，4×5 圆形按键在下）；宽屏时右侧并排显示历史记录。
+   刻意只用一套深色外观，与手机计算器一致。 */
 :root {
-  --bg: #e9ecf1;
-  --body: #f7f8fa;
-  --key: #ffffff;
-  --key-fn: #dde2ea;
-  --key-shadow: #c3cad5;
-  --fg: #19212c;
-  --muted: #687384;
-  --accent: #2d5f93;
-  --accent-fg: #ffffff;
-  --accent-soft: #d6e3f1;
-  --tape: #fffdf7;
-  --tape-line: #e4ddca;
-  --error: #b3362f;
-  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --font-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  --radius: 14px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #11151b; --body: #1a2029; --key: #252c37; --key-fn: #2f3846; --key-shadow: #0b0e12;
-    --fg: #e5eaf1; --muted: #8b95a5; --accent: #6b9fd6; --accent-fg: #0d1520; --accent-soft: #24364b;
-    --tape: #1d222a; --tape-line: #323a46; --error: #ef7d74; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #11151b; --body: #1a2029; --key: #252c37; --key-fn: #2f3846; --key-shadow: #0b0e12;
-  --fg: #e5eaf1; --muted: #8b95a5; --accent: #6b9fd6; --accent-fg: #0d1520; --accent-soft: #24364b;
-  --tape: #1d222a; --tape-line: #323a46; --error: #ef7d74; color-scheme: dark;
+  --bg: #000000;
+  --fg: #ffffff;
+  --muted: #8e8e93;
+  --key-num: #333333;
+  --key-num-hi: #737373;
+  --key-fn: #a5a5a5;
+  --key-fn-fg: #000000;
+  --key-fn-hi: #d9d9d9;
+  --key-op: #ff9f0a;
+  --key-op-hi: #fcc78d;
+  --panel: #1c1c1e;
+  --line: #2c2c2e;
+  --error: #ff6961;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  --gap: 14px;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -47,71 +36,67 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-ui);
-  font-size: 14px;
-  padding-block: 32px;
+  font-family: var(--font);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  padding-block: 24px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none;
+  user-select: none;
 }
 .wrap {
   max-width: 760px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+  gap: 32px;
+  align-items: end;
 }
 @media (max-width: 680px) {
-  .wrap { grid-template-columns: minmax(0, 1fr); max-width: 400px; }
+  .wrap { grid-template-columns: minmax(0, 1fr); max-width: 380px; align-items: start; }
+  body { padding-block: 12px 20px; }
 }
 
 /* 机身 */
-.calc {
-  background: var(--body);
-  border-radius: 22px;
-  padding: 18px;
-  box-shadow: 0 1px 0 var(--key-shadow), 0 12px 32px -18px rgba(20, 30, 45, .45);
-  display: grid;
-  gap: 16px;
-}
-.brand {
-  display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 12px; color: var(--muted); letter-spacing: .08em;
-}
-.brand b { font-weight: 700; color: var(--fg); letter-spacing: .12em; }
+.calc { display: grid; gap: 18px; }
 
 .screen {
-  background: var(--accent-soft);
-  border-radius: var(--radius);
-  padding: 14px 16px 12px;
-  min-height: 112px;
+  min-height: 176px;
   display: grid;
   align-content: end;
-  gap: 4px;
+  gap: 2px;
   text-align: right;
-  font-family: var(--font-num);
+  padding: 0 8px;
   font-variant-numeric: tabular-nums;
   cursor: copy;
   position: relative;
+  outline: none;
 }
-.screen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.screen:focus-visible { box-shadow: inset 0 -2px 0 var(--key-op); }
 .sub {
-  min-height: 1.4em;
+  min-height: 1.5em;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 22px;
+  font-weight: 400;
   overflow-wrap: anywhere;
 }
 .main {
-  font-size: 40px;
-  font-weight: 500;
-  line-height: 1.15;
+  font-size: 84px;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  direction: ltr;
 }
-.main.error { color: var(--error); font-family: var(--font-ui); font-size: 24px; }
+.main.error { color: var(--error); font-size: 34px; font-weight: 400; white-space: normal; letter-spacing: 0; }
 .toast {
-  position: absolute; left: 12px; top: 10px;
-  font-family: var(--font-ui); font-size: 12px; color: var(--accent);
+  position: absolute; left: 8px; top: 8px;
+  font-size: 13px; color: var(--key-op);
   opacity: 0; transition: opacity .2s;
 }
 .toast.show { opacity: 1; }
@@ -119,89 +104,92 @@ body {
 .keys {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--gap);
 }
 .key {
   appearance: none;
   border: 0;
-  border-radius: var(--radius);
-  height: 58px;
-  background: var(--key);
+  border-radius: 50%;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 100%;
+  background: var(--key-num);
   color: var(--fg);
-  font-family: var(--font-num);
-  font-size: 22px;
-  box-shadow: 0 2px 0 var(--key-shadow);
+  font-family: var(--font);
+  font-size: 36px;
+  font-weight: 400;
   cursor: pointer;
-  transition: transform .06s, box-shadow .06s, filter .12s;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: background-color .35s ease-out, color .35s ease-out;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-.key:hover { filter: brightness(.97); }
-.key:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.key:active, .key.pressed { transform: translateY(2px); box-shadow: 0 0 0 var(--key-shadow); }
-.key.fn { background: var(--key-fn); font-size: 18px; }
-.key.fn.txt { font-family: var(--font-ui); font-weight: 500; }
-.key.op { background: var(--key-fn); color: var(--accent); font-size: 26px; font-weight: 600; }
-.key.eq { background: var(--accent); color: var(--accent-fg); grid-column: span 3; font-size: 26px; }
+.key:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+.key:active, .key.pressed { background: var(--key-num-hi); transition: none; }
 
-.hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.key.fn { background: var(--key-fn); color: var(--key-fn-fg); font-size: 30px; font-weight: 500; }
+.key.fn:active, .key.fn.pressed { background: var(--key-fn-hi); }
+.key.fn.txt { font-size: 28px; }
+.key.fn svg { width: 34px; height: 34px; }
+
+.key.op { background: var(--key-op); color: var(--fg); font-size: 42px; font-weight: 400; }
+.key.op:active, .key.op.pressed { background: var(--key-op-hi); }
+/* 选中的运算符：反色显示，等待第二个数 */
+.key.op.selected { background: var(--fg); color: var(--key-op); transition: none; }
+
+.key.paren { font-size: 28px; letter-spacing: .06em; }
+
+.hint { margin: 4px 8px 0; font-size: 12px; color: var(--muted); line-height: 1.7; }
 .hint kbd {
-  font-family: var(--font-num); font-size: 11px;
-  background: var(--key-fn); border-radius: 4px; padding: 0 5px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px;
+  background: var(--panel); border-radius: 4px; padding: 1px 5px; color: var(--fg);
 }
 
-/* 纸带 */
+/* 历史记录 */
 .tape {
-  background: var(--tape);
-  border-radius: 6px;
-  box-shadow: 0 1px 0 var(--tape-line), 0 10px 28px -20px rgba(20, 30, 45, .5);
+  background: var(--panel);
+  border-radius: 20px;
   min-width: 0;
   display: grid;
   grid-template-rows: auto 1fr;
-  max-height: 600px;
-  position: relative;
+  max-height: 640px;
+  overflow: hidden;
 }
-/* 纸带顶部的锯齿撕口 */
-.tape::before {
-  content: "";
-  position: absolute; left: 0; right: 0; top: -6px; height: 6px;
-  background:
-    linear-gradient(135deg, transparent 50%, var(--tape) 50%) 0 0 / 12px 6px repeat-x,
-    linear-gradient(225deg, transparent 50%, var(--tape) 50%) 0 0 / 12px 6px repeat-x;
-}
+@media (max-width: 680px) { .tape { max-height: 420px; } }
 .tape-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 18px 10px;
-  border-bottom: 1px dashed var(--tape-line);
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
 }
-.tape-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .06em; }
-.tape-head h2 span { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.tape-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.tape-head h2 span { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
 .clear-btn {
-  appearance: none; border: 0; background: none; color: var(--muted);
-  font: inherit; font-size: 12px; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+  appearance: none; border: 0; background: none; color: var(--key-op);
+  font: inherit; font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 8px;
 }
-.clear-btn:hover { color: var(--error); }
-.clear-btn:focus-visible { outline: 2px solid var(--accent); }
+.clear-btn[disabled] { color: var(--muted); cursor: default; opacity: .5; }
+.clear-btn:focus-visible { outline: 2px solid var(--key-op); }
 .tape-list {
-  list-style: none; margin: 0; padding: 4px 0 12px;
+  list-style: none; margin: 0; padding: 0 0 8px;
   overflow-y: auto;
-  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
 }
 .tape-list li button {
   appearance: none; border: 0; background: none; color: inherit; font: inherit;
   width: 100%; text-align: right; cursor: pointer;
-  padding: 10px 18px;
+  padding: 12px 18px;
   display: grid; gap: 2px;
-  border-bottom: 1px dotted var(--tape-line);
+  border-bottom: 1px solid var(--line);
 }
-.tape-list li button:hover { background: var(--accent-soft); }
-.tape-list li button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.tape-list .e { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-.tape-list .r { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
-.tape-list .r::before { content: "= "; color: var(--muted); font-weight: 400; }
+.tape-list li:last-child button { border-bottom: 0; }
+.tape-list li button:hover { background: var(--line); }
+.tape-list li button:focus-visible { outline: 2px solid var(--key-op); outline-offset: -2px; }
+.tape-list .e { color: var(--muted); font-size: 15px; overflow-wrap: anywhere; }
+.tape-list .r { font-size: 24px; font-weight: 300; overflow-wrap: anywhere; }
 .empty {
-  padding: 28px 18px; color: var(--muted); font-family: var(--font-ui); line-height: 1.7; text-align: center;
+  padding: 40px 18px; color: var(--muted); line-height: 1.7; text-align: center; font-size: 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -212,8 +200,6 @@ body {
 <body>
 <main class="wrap">
   <section class="calc" aria-label="计算器">
-    <div class="brand"><b>纸带计算器</b><span>12 位有效数字</span></div>
-
     <div class="screen" id="screen" tabindex="0" role="button" aria-label="点击复制结果">
       <span class="toast" id="toast">已复制</span>
       <div class="sub" id="sub" aria-live="polite"></div>
@@ -221,42 +207,39 @@ body {
     </div>
 
     <div class="keys" id="keys">
-      <button class="key fn txt" id="k-ac" data-k="AC">AC</button>
-      <button class="key fn" id="k-lp" data-k="(">(</button>
-      <button class="key fn" id="k-rp" data-k=")">)</button>
-      <button class="key fn" id="k-bs" data-k="BS" aria-label="退格">⌫</button>
+      <button class="key fn txt" id="k-clr" data-k="CLR" aria-label="全部清除">AC</button>
+      <button class="key fn" id="k-neg" data-k="±" aria-label="正负号">±</button>
+      <button class="key fn" id="k-pct" data-k="%" aria-label="百分比">%</button>
+      <button class="key op" id="k-div" data-k="÷" aria-label="除">÷</button>
 
       <button class="key" id="k-7" data-k="7">7</button>
       <button class="key" id="k-8" data-k="8">8</button>
       <button class="key" id="k-9" data-k="9">9</button>
-      <button class="key op" id="k-div" data-k="÷" aria-label="除">÷</button>
+      <button class="key op" id="k-mul" data-k="×" aria-label="乘">×</button>
 
       <button class="key" id="k-4" data-k="4">4</button>
       <button class="key" id="k-5" data-k="5">5</button>
       <button class="key" id="k-6" data-k="6">6</button>
-      <button class="key op" id="k-mul" data-k="×" aria-label="乘">×</button>
+      <button class="key op" id="k-sub" data-k="−" aria-label="减">−</button>
 
       <button class="key" id="k-1" data-k="1">1</button>
       <button class="key" id="k-2" data-k="2">2</button>
       <button class="key" id="k-3" data-k="3">3</button>
-      <button class="key op" id="k-sub" data-k="−" aria-label="减">−</button>
-
-      <button class="key fn" id="k-neg" data-k="±" aria-label="正负号">±</button>
-      <button class="key" id="k-0" data-k="0">0</button>
-      <button class="key" id="k-dot" data-k=".">.</button>
       <button class="key op" id="k-add" data-k="+" aria-label="加">+</button>
 
-      <button class="key fn" id="k-pct" data-k="%" aria-label="百分比">%</button>
-      <button class="key eq" id="k-eq" data-k="=" aria-label="等于">=</button>
+      <button class="key paren" id="k-paren" data-k="()" aria-label="括号">( )</button>
+      <button class="key" id="k-0" data-k="0">0</button>
+      <button class="key" id="k-dot" data-k="." aria-label="小数点">.</button>
+      <button class="key op" id="k-eq" data-k="=" aria-label="等于">=</button>
     </div>
 
-    <p class="hint">支持键盘：数字、<kbd>+ - * /</kbd>、<kbd>( )</kbd>、<kbd>%</kbd>、<kbd>Enter</kbd> 求值、<kbd>Backspace</kbd> 退格、<kbd>Esc</kbd> 清空。点击屏幕可复制结果。</p>
+    <p class="hint">输入时左上角是退格键 ⌫，长按可全部清除。<kbd>( )</kbd> 键会自动判断开括号还是闭括号。键盘可用：数字、<kbd>+ - * /</kbd>、<kbd>( )</kbd>、<kbd>%</kbd>、<kbd>Enter</kbd>、<kbd>Backspace</kbd>、<kbd>Esc</kbd>。点击数字可复制结果。</p>
   </section>
 
-  <section class="tape" aria-label="计算记录">
+  <section class="tape" aria-label="历史记录">
     <div class="tape-head">
-      <h2>纸带<span id="count"></span></h2>
-      <button class="clear-btn" id="clear-tape">清空纸带</button>
+      <h2>历史记录<span id="count"></span></h2>
+      <button class="clear-btn" id="clear-tape">清除</button>
     </div>
     <ul class="tape-list" id="tape"></ul>
   </section>
@@ -285,7 +268,7 @@ body {
       if (/[0-9.]/.test(c)) {
         const m = /^(\d*\.?\d*)(e[+-]?\d+)?/.exec(s.slice(i));
         const text = m[0];
-        if (text === "." ) throw new Error("表达式不完整");
+        if (text === ".") throw new Error("表达式不完整");
         tokens.push({ t: "num", v: parseFloat(text) });
         i += text.length;
       } else if ("+−×÷()%".includes(c)) {
@@ -324,8 +307,7 @@ body {
             v = v / r;
           } else v = v * r;
         } else if (p === "(" || p === "num") {
-          // 隐式乘法：2(3) 或 (2)(3)
-          v = v * parseUnary();
+          v = v * parseUnary();   // 隐式乘法：2(3) 或 (2)(3)
         } else break;
       }
       return v;
@@ -357,8 +339,7 @@ body {
     const v = parseExpr();
     if (pos < tokens.length) throw new Error("括号不匹配");
     if (!isFinite(v)) throw new Error("结果超出范围");
-    // 去掉二进制浮点误差，如 0.1 + 0.2
-    return parseFloat(v.toPrecision(12));
+    return parseFloat(v.toPrecision(12));   // 去掉二进制浮点误差，如 0.1 + 0.2
   }
 
   // ---------- 格式化 ----------
@@ -374,17 +355,12 @@ body {
     const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return (n < 0 ? "−" : "") + grouped + (frac ? "." + frac : "");
   }
-  // 结果转回可继续计算的表达式文本
   function numberToExpr(n) {
     if (Object.is(n, -0)) n = 0;
     let s = String(n);
-    if (s.includes("e")) {
-      // 极小/极大值保留指数形式，分词器支持
-      s = n.toExponential();
-    }
+    if (s.includes("e")) s = n.toExponential();
     return s.replace(/^-/, "−");
   }
-  // 表达式中的数字加千位分隔
   function prettyExpr(s) {
     return s.replace(/\d+(\.\d*)?(e[+-]?\d+)?/g, m => {
       if (m.includes("e")) return m;
@@ -406,6 +382,8 @@ body {
     if (errorMsg) { expr = ""; errorMsg = ""; }
     if (evaluated) { expr = lastResult === null ? "" : numberToExpr(lastResult); evaluated = false; }
   }
+  // 左上角键：有输入时是退格，没有输入或刚出结果时是 AC
+  const clrIsBackspace = () => !evaluated && !errorMsg && expr !== "";
 
   function input(k) {
     if (/^[0-9]$/.test(k)) {
@@ -441,12 +419,20 @@ body {
     } else if (k === ")") {
       if (evaluated || errorMsg) return;
       if (openCount() > 0 && !OPS.includes(last()) && last() !== "(") expr += ")";
+    } else if (k === "()") {
+      // 智能括号：能闭合就闭合，否则开一个新括号
+      const canClose = !evaluated && !errorMsg && openCount() > 0 && !OPS.includes(last()) && last() !== "(";
+      input(canClose ? ")" : "(");
+      return;
     } else if (k === "%") {
       continueFromResult();
       if (isDigit(last()) || last() === ")" || last() === ".") expr += "%";
     } else if (k === "±") {
       continueFromResult();
       toggleSign();
+    } else if (k === "CLR") {
+      input(clrIsBackspace() ? "BS" : "AC");
+      return;
     } else if (k === "BS") {
       if (errorMsg) { errorMsg = ""; }
       else if (evaluated) { evaluated = false; expr = lastResult === null ? "" : numberToExpr(lastResult); }
@@ -476,7 +462,7 @@ body {
     const prevPrev = before.slice(-2, -1);
     if (prev === "−" && (before.length === 1 || /[+−×÷(]/.test(prevPrev))) {
       expr = before.slice(0, -1) + cur;               // 去掉一元负号
-    } else if (prev === "+" ) {
+    } else if (prev === "+") {
       expr = before.slice(0, -1) + "−" + cur;          // a+b → a−b
     } else if (prev === "−") {
       expr = before.slice(0, -1) + "+" + cur;          // a−b → a+b
@@ -486,7 +472,7 @@ body {
   }
 
   function closedExpr() {
-    let s = expr.replace(/[+−×÷(]+$/, "");
+    const s = expr.replace(/[+−×÷(]+$/, "");
     const n = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
     return s + ")".repeat(Math.max(0, n));
   }
@@ -513,14 +499,32 @@ body {
   // ---------- 渲染 ----------
   const $main = document.getElementById("main");
   const $sub = document.getElementById("sub");
+  const $clr = document.getElementById("k-clr");
+  const opKeys = [...document.querySelectorAll(".key.op:not(#k-eq)")];
+  const BS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z"/><path d="M12 9.5l5 5M17 9.5l-5 5"/></svg>';
 
-  function fitMain(text) {
-    const len = text.length;
-    const size = len <= 11 ? 40 : len <= 15 ? 32 : len <= 20 ? 26 : 20;
-    $main.style.fontSize = size + "px";
+  // 按显示区宽度自动缩小字号，长数字不换行
+  function fitMain() {
+    $main.style.fontSize = "";
+    const max = $main.clientWidth;
+    let size = 84;
+    while ($main.scrollWidth > max && size > 28) {
+      size -= 4;
+      $main.style.fontSize = size + "px";
+    }
   }
 
   function render() {
+    // 左上角键的状态
+    if (clrIsBackspace()) {
+      $clr.innerHTML = BS_ICON; $clr.setAttribute("aria-label", "退格（长按全部清除）");
+    } else {
+      $clr.textContent = "AC"; $clr.setAttribute("aria-label", "全部清除");
+    }
+    // 刚输入运算符时高亮该运算符
+    const pending = !evaluated && !errorMsg && OPS.includes(last()) ? last() : "";
+    opKeys.forEach(b => b.classList.toggle("selected", b.dataset.k === pending));
+
     $main.classList.toggle("error", !!errorMsg);
     if (errorMsg) {
       $sub.textContent = prettyExpr(closedExpr());
@@ -530,15 +534,12 @@ body {
     }
     if (evaluated) {
       $sub.textContent = prettyExpr(expr) + " =";
-      const t = formatNumber(lastResult);
-      $main.textContent = t;
-      fitMain(t);
+      $main.textContent = formatNumber(lastResult);
+      fitMain();
       return;
     }
-    const shown = expr === "" ? "0" : prettyExpr(expr);
-    $main.textContent = shown;
-    fitMain(shown);
-    // 实时预览
+    $main.textContent = expr === "" ? "0" : prettyExpr(expr);
+    fitMain();
     let preview = "";
     const full = closedExpr();
     if (full && /[+−×÷%(]/.test(full.replace(/^−/, ""))) {
@@ -549,13 +550,15 @@ body {
 
   const $tape = document.getElementById("tape");
   const $count = document.getElementById("count");
+  const $clearTape = document.getElementById("clear-tape");
   function renderTape() {
     $tape.replaceChildren();
     $count.textContent = history.length ? history.length + " 条" : "";
+    $clearTape.disabled = !history.length;
     if (!history.length) {
       const li = document.createElement("li");
       li.className = "empty";
-      li.textContent = "还没有记录。按下 = 后，算式和结果会打印在这条纸带上，点击任意一条可把结果拿回来继续算。";
+      li.textContent = "暂无记录。按下 = 后，算式和结果会出现在这里，点击任意一条可取回结果继续计算。";
       $tape.appendChild(li);
       return;
     }
@@ -576,28 +579,34 @@ body {
     });
   }
 
-  // ---------- 存储 ----------
+  // ---------- 存储（只保存在本机浏览器） ----------
   function loadHistory() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
       const arr = raw ? JSON.parse(raw) : null;
       if (Array.isArray(arr)) return arr.filter(x => x && typeof x.e === "string" && typeof x.r === "number");
     } catch (_) {}
-    // 示例记录，展示纸带的样子
-    return [
-      { e: "1280×0.85", r: 1088 },
-      { e: "(36.5+42.8)÷2", r: 39.65 },
-      { e: "2400×12%", r: 288 },
-    ];
+    return [];
   }
   function saveHistory() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(history)); } catch (_) {}
   }
 
   // ---------- 事件 ----------
+  let longPressTimer = null, longPressed = false;
+  $clr.addEventListener("pointerdown", () => {
+    longPressed = false;
+    if (!clrIsBackspace()) return;
+    longPressTimer = setTimeout(() => { longPressed = true; input("AC"); }, 550);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(t =>
+    $clr.addEventListener(t, () => clearTimeout(longPressTimer)));
+
   document.getElementById("keys").addEventListener("click", e => {
     const b = e.target.closest("[data-k]");
-    if (b) input(b.dataset.k);
+    if (!b) return;
+    if (b === $clr && longPressed) { longPressed = false; return; }
+    input(b.dataset.k);
   });
 
   const keyMap = {
@@ -605,17 +614,18 @@ body {
     "(": "(", ")": ")", "%": "%", ".": ".", ",": ".",
     "Enter": "=", "=": "=", "Backspace": "BS", "Escape": "AC", "Delete": "AC",
   };
+  const flashFor = { "(": "()", ")": "()", "BS": "CLR", "AC": "CLR" };
   document.addEventListener("keydown", e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    let k = /^[0-9]$/.test(e.key) ? e.key : keyMap[e.key];
+    const k = /^[0-9]$/.test(e.key) ? e.key : keyMap[e.key];
     if (!k) return;
-    // 焦点在纸带或清空按钮上时，Enter 交给按钮自身；计算器按键上 Enter 一律表示 =
+    // 焦点在历史记录或清除按钮上时，Enter 交给按钮自身；计算器按键上 Enter 一律表示 =
     const ae = document.activeElement;
     if (e.key === "Enter" && ae && ae.matches("button") && !ae.closest("#keys")) return;
     e.preventDefault();
-    input(k);
-    const btn = document.querySelector(`[data-k="${CSS.escape(k)}"]`);
+    const btn = document.querySelector(`[data-k="${CSS.escape(flashFor[k] || k)}"]`);
     if (btn) { btn.classList.add("pressed"); setTimeout(() => btn.classList.remove("pressed"), 110); }
+    input(k);
   });
 
   const $toast = document.getElementById("toast");
@@ -623,7 +633,7 @@ body {
     const text = (evaluated && lastResult !== null) ? numberToExpr(lastResult).replace("−", "-") : $main.textContent;
     const done = () => { $toast.classList.add("show"); setTimeout(() => $toast.classList.remove("show"), 1200); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, () => selectMain());
+      navigator.clipboard.writeText(text).then(done, selectMain);
     } else selectMain();
   }
   function selectMain() {
@@ -634,12 +644,12 @@ body {
   $screen.addEventListener("click", copyResult);
   $screen.addEventListener("keydown", e => { if (e.key === " ") { e.preventDefault(); copyResult(); } });
 
-  document.getElementById("clear-tape").addEventListener("click", () => {
+  $clearTape.addEventListener("click", () => {
     history = []; saveHistory(); renderTape();
   });
 
-  // 初始状态：载入一个示例算式
-  expr = "(36.5+42.8)÷2";
+  window.addEventListener("resize", () => { if (!errorMsg) fitMain(); });
+
   render();
   renderTape();
 
